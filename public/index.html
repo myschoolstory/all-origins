@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Proxy Monitor</title>
+  <style>
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;background:#071229;color:#e6eef6}
+    .wrap{max-width:1100px;margin:20px auto;padding:18px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    h1{font-size:18px;margin:0}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:14px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    .muted{color:#93a0ad;font-size:13px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .small{font-size:12px;color:#94a3b8}
+    button{padding:8px 10px;border-radius:8px;border:0;background:#2dd4bf;color:#04211a;font-weight:600;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#9fb6c5}
+    .top-list{display:flex;flex-direction:column;gap:6px}
+    .bar{height:10px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden}
+    .bar > i{display:block;height:100%;background:linear-gradient(90deg,#2dd4bf,#10b981)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>All-Origins Proxy — Monitor</h1>
+        <div class="muted">Simple in-memory usage dashboard. Refreshes automatically every 3s.</div>
+      </div>
+      <div>
+        <button id="refresh">Refresh</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+          <div>
+            <div class="small">Uptime</div>
+            <strong id="uptime">—</strong>
+          </div>
+          <div>
+            <div class="small">Requests</div>
+            <strong id="requests">—</strong>
+          </div>
+          <div>
+            <div class="small">Success / Fail</div>
+            <strong id="successfail">—</strong>
+          </div>
+          <div>
+            <div class="small">Transferred</div>
+            <strong id="bytes">—</strong>
+          </div>
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+
+        <div style="display:flex;gap:10px;align-items:center">
+          <label class="small">Poll interval</label>
+          <select id="interval">
+            <option value="3000">3s</option>
+            <option value="5000">5s</option>
+            <option value="10000">10s</option>
+            <option value="0">Manual</option>
+          </select>
+          <button id="clear" class="ghost">Clear stats</button>
+          <a href="/fetch?url=https://example.com/image.jpg" target="_blank" style="margin-left:auto;color:#9fb6c5;text-decoration:none">Test fetch</a>
+        </div>
+
+        <h3 style="margin-top:12px">Top domains</h3>
+        <div id="top" class="top-list"></div>
+
+        <h3 style="margin-top:12px">Recent requests</h3>
+        <div style="max-height:320px;overflow:auto">
+          <table>
+            <thead><tr><th>Time</th><th>IP</th><th>Domain</th><th>Status</th><th class="small">Bytes</th></tr></thead>
+            <tbody id="recentTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Details</h3>
+        <div class="small muted">Recent requests (most recent first). Click a row to open the proxied URL in a new tab.</div>
+        <div style="height:10px"></div>
+        <div id="details" style="max-height:520px;overflow:auto"></div>
+      </div>
+    </div>
+
+    <footer style="margin-top:12px;color:#94a3b8;font-size:13px">Note: This dashboard stores stats in-memory (ephemeral). Do not expose this proxy publicly without adding authentication and protections.</footer>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let pollTimer = null;
+
+  async function humanBytes(n){
+    if(n === undefined || n === null) return '0 B';
+    n = Number(n);
+    if(n < 1024) return n + ' B';
+    const units = ['B','KB','MB','GB','TB'];
+    let i = 0;
+    while(n >= 1024 && i < units.length-1){ n /= 1024; i++; }
+    return n.toFixed(2) + ' ' + units[i];
+  }
+
+  function fmtTime(ms){
+    if(ms < 1000) return ms + ' ms';
+    return (ms/1000).toFixed(2) + ' s';
+  }
+
+  async function refresh(){
+    try {
+      const r = await fetch('/api/stats');
+      const s = await r.json();
+      $('uptime').textContent = new Date(Date.now() - s.uptimeMs).toISOString().substr(11,8) + ' (since last reset)';
+      $('requests').textContent = s.totalRequests;
+      $('successfail').textContent = (s.totalSuccess || 0) + ' / ' + (s.totalFailed || 0);
+      $('bytes').textContent = await humanBytes(s.totalBytes);
+
+      // top domains
+      const topEl = $('top');
+      topEl.innerHTML = '';
+      const top = s.topDomains || [];
+      const maxCount = top.length ? top[0].count : 1;
+      top.slice(0,10).forEach(item => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        row.innerHTML = `<div style="width:10em;overflow:hidden;text-overflow:ellipsis">${item.domain}</div>
+          <div style="flex:1">
+            <div class="bar"><i style="width:${Math.round(item.count/maxCount*100)}%"></i></div>
+          </div>
+          <div style="width:70px;text-align:right" class="small">${item.count}</div>`;
+        topEl.appendChild(row);
+      });
+
+      // recent
+      const rr = await fetch('/api/recent');
+      const recent = await rr.json();
+      const recentTable = $('recentTable');
+      recentTable.innerHTML = '';
+      const details = $('details');
+      details.innerHTML = '';
+      recent.slice(0,200).forEach(req => {
+        const tr = document.createElement('tr');
+        const ttime = new Date(req.ts).toLocaleString();
+        tr.innerHTML = `<td style="white-space:nowrap">${ttime}</td>
+                        <td style="max-width:120px;overflow:hidden">${req.ip}</td>
+                        <td style="max-width:220px;overflow:hidden">${req.domain}</td>
+                        <td>${req.status}${req.error ? ' ⚠' : ''}</td>
+                        <td class="small">${req.bytes}</td>`;
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', () => {
+          // open proxied url in new tab
+          window.open('/fetch?url=' + encodeURIComponent(req.url), '_blank');
+        });
+        recentTable.appendChild(tr);
+
+        const d = document.createElement('div');
+        d.style.padding = '8px';
+        d.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+        d.innerHTML = `<div style="display:flex;justify-content:space-between">
+                         <div><strong>${req.domain}</strong> — ${new Date(req.ts).toLocaleString()}</div>
+                         <div class="small">${fmtTime(req.durationMs)} • ${req.status}</div>
+                       </div>
+                       <div style="font-size:13px;color:#9fb6c5;margin-top:6px">${req.ip} • ${req.bytes} bytes ${req.error ? ' • Error: '+req.error : ''}</div>
+                       <div style="margin-top:6px"><a href="/fetch?url=${encodeURIComponent(req.url)}" target="_blank">Open proxied URL</a></div>`;
+        details.appendChild(d);
+      });
+
+    } catch (err) {
+      console.error('Refresh error', err);
+    }
+  }
+
+  $('refresh').addEventListener('click', () => refresh());
+  $('interval').addEventListener('change', ()=>{
+    if(pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    const v = Number($('interval').value);
+    if(v > 0) pollTimer = setInterval(refresh, v);
+  });
+
+  $('clear').addEventListener('click', async ()=>{
+    if(!confirm('Clear all in-memory stats?')) return;
+    await fetch('/api/clear', { method: 'POST' });
+    refresh();
+  });
+
+  // start auto-refresh default 3s
+  pollTimer = setInterval(refresh, 3000);
+  refresh();
+</script>
+</body>
+</html>
