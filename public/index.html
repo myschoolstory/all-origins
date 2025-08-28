@@ -3,102 +3,277 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Proxy Monitor</title>
+  <title>Proxy Monitor & API Playground</title>
   <style>
-    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;background:#071229;color:#e6eef6}
-    .wrap{max-width:1100px;margin:20px auto;padding:18px}
+    :root{
+      --bg:#071229; --card-grad: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      --muted:#93a0ad; --accent:#2dd4bf;
+    }
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;background:var(--bg);color:#e6eef6}
+    .wrap{max-width:1200px;margin:18px auto;padding:18px}
     header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
     h1{font-size:18px;margin:0}
-    .grid{display:grid;grid-template-columns:1fr 360px;gap:14px}
-    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
-    .muted{color:#93a0ad;font-size:13px}
+    .muted{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:14px}
+    .card{background:var(--card-grad);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    .small{font-size:13px;color:var(--muted)}
+    .btn{padding:8px 10px;border-radius:8px;border:0;background:var(--accent);color:#04211a;font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#9fb6c5}
+    .btn.warn{background:#fb923c;color:#1a0d00}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03)}
-    .small{font-size:12px;color:#94a3b8}
-    button{padding:8px 10px;border-radius:8px;border:0;background:#2dd4bf;color:#04211a;font-weight:600;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#9fb6c5}
-    .top-list{display:flex;flex-direction:column;gap:6px}
-    .bar{height:10px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden}
-    .bar > i{display:block;height:100%;background:linear-gradient(90deg,#2dd4bf,#10b981)}
+    textarea,input,select{width:100%;padding:8px;border-radius:8px;background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.02);color:inherit}
+    .flex{display:flex;gap:8px;align-items:center}
+    .kbd{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px;font-size:12px;color:var(--muted)}
+    .row{display:flex;gap:8px}
+    #docs pre{background:rgba(0,0,0,0.18);padding:10px;border-radius:8px;overflow:auto}
+    .preview{max-width:100%;height:auto;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+    .meta{font-size:12px;color:var(--muted);margin-top:6px}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .pill{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-size:12px;color:var(--muted)}
+    .center{display:flex;align-items:center;justify-content:center}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <div>
-        <h1>All-Origins Proxy — Monitor</h1>
-        <div class="muted">Simple in-memory usage dashboard. Refreshes automatically every 3s.</div>
+        <h1>All-Origins Proxy — Monitor & API Playground</h1>
+        <div class="muted">Docs + interactive tester for the proxy. Use this UI to explore endpoints and try proxied requests safely from the browser.</div>
       </div>
-      <div>
-        <button id="refresh">Refresh</button>
+      <div class="flex">
+        <button id="refresh" class="btn">Refresh Dashboard</button>
+        <button id="openApi" class="btn ghost">Open API Docs</button>
       </div>
     </header>
 
     <div class="grid">
-      <div class="card">
-        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between">
-          <div>
-            <div class="small">Uptime</div>
-            <strong id="uptime">—</strong>
+      <div>
+        <!-- Monitoring Card (existing features) -->
+        <div class="card" id="monitorCard" style="margin-bottom:12px">
+          <div style="display:flex;gap:12px;align-items:center;justify-content:space-between">
+            <div>
+              <div class="small">Uptime</div>
+              <strong id="uptime">—</strong>
+            </div>
+            <div>
+              <div class="small">Requests</div>
+              <strong id="requests">—</strong>
+            </div>
+            <div>
+              <div class="small">Success / Fail</div>
+              <strong id="successfail">—</strong>
+            </div>
+            <div>
+              <div class="small">Transferred</div>
+              <strong id="bytes">—</strong>
+            </div>
           </div>
-          <div>
-            <div class="small">Requests</div>
-            <strong id="requests">—</strong>
+
+          <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+
+          <div style="display:flex;gap:10px;align-items:center">
+            <label class="small">Poll interval</label>
+            <select id="interval">
+              <option value="3000">3s</option>
+              <option value="5000">5s</option>
+              <option value="10000">10s</option>
+              <option value="0">Manual</option>
+            </select>
+            <button id="clear" class="btn ghost">Clear stats</button>
+            <a href="/fetch?url=https://example.com/image.jpg" target="_blank" style="margin-left:auto;color:#9fb6c5;text-decoration:none">Test fetch</a>
           </div>
-          <div>
-            <div class="small">Success / Fail</div>
-            <strong id="successfail">—</strong>
-          </div>
-          <div>
-            <div class="small">Transferred</div>
-            <strong id="bytes">—</strong>
+
+          <h3 style="margin-top:12px">Top domains</h3>
+          <div id="top" class="top-list"></div>
+
+          <h3 style="margin-top:12px">Recent requests</h3>
+          <div style="max-height:250px;overflow:auto">
+            <table>
+              <thead><tr><th>Time</th><th>IP</th><th>Domain</th><th>Status</th><th class="small">Bytes</th></tr></thead>
+              <tbody id="recentTable"></tbody>
+            </table>
           </div>
         </div>
 
-        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+        <!-- API Playground -->
+        <div class="card" id="playground">
+          <h3>API Playground</h3>
+          <div class="small muted">Compose a request and run it directly from the browser. Useful for testing `/fetch` or the monitoring APIs.</div>
 
-        <div style="display:flex;gap:10px;align-items:center">
-          <label class="small">Poll interval</label>
-          <select id="interval">
-            <option value="3000">3s</option>
-            <option value="5000">5s</option>
-            <option value="10000">10s</option>
-            <option value="0">Manual</option>
+          <div style="height:8px"></div>
+
+          <label class="small">Choose endpoint</label>
+          <select id="endpointSelect">
+            <option value="/fetch">/fetch — Proxy fetch (GET query or POST JSON)</option>
+            <option value="/api/stats">/api/stats — Summary</option>
+            <option value="/api/recent">/api/recent — Recent requests</option>
+            <option value="/api/top">/api/top — Top domains</option>
+            <option value="/api/clear">/api/clear — Clear stats (POST)</option>
+            <option value="custom">Custom URL (enter below)</option>
           </select>
-          <button id="clear" class="ghost">Clear stats</button>
-          <a href="/fetch?url=https://example.com/image.jpg" target="_blank" style="margin-left:auto;color:#9fb6c5;text-decoration:none">Test fetch</a>
+
+          <div style="height:8px"></div>
+
+          <div class="row">
+            <label style="flex:1">
+              <div class="small">Method</div>
+              <select id="method">
+                <option>GET</option>
+                <option>POST</option>
+              </select>
+            </label>
+
+            <label style="flex:2">
+              <div class="small">URL / Path</div>
+              <input id="pathInput" type="text" value="/fetch" />
+            </label>
+          </div>
+
+          <div style="height:8px"></div>
+
+          <div class="split">
+            <div>
+              <div class="small">Query parameters (key=value per line)</div>
+              <textarea id="queryParams" rows="5" placeholder="url=https://example.com/image.jpg"></textarea>
+            </div>
+            <div>
+              <div class="small">JSON body (for POST)</div>
+              <textarea id="jsonBody" rows="5" placeholder='{"url":"https://example.com/image.jpg"}'></textarea>
+            </div>
+          </div>
+
+          <div style="height:8px"></div>
+
+          <div>
+            <div class="small">Custom headers (key: value per line)</div>
+            <textarea id="headers" rows="3" placeholder="X-Example: value"></textarea>
+          </div>
+
+          <div style="height:8px"></div>
+
+          <div class="row">
+            <button id="sendBtn" class="btn">Send Request</button>
+            <button id="curlBtn" class="btn ghost">Show curl</button>
+            <button id="openBtn" class="btn ghost">Open in new tab</button>
+            <div style="margin-left:auto" class="muted">Response preview below</div>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div id="responseBox" style="border-radius:8px;padding:10px;background:rgba(0,0,0,0.12);">
+            <div class="small">Status: <span id="respStatus">—</span> • Time: <span id="respTime">—</span> • Size: <span id="respSize">—</span></div>
+            <div style="height:8px"></div>
+            <div id="respHeaders" class="small" style="white-space:pre-wrap"></div>
+            <div style="height:8px"></div>
+            <div id="respPreview"></div>
+            <pre id="respText" style="display:none;white-space:pre-wrap;margin-top:8px;background:rgba(0,0,0,0.18);padding:8px;border-radius:6px;"></pre>
+          </div>
         </div>
 
-        <h3 style="margin-top:12px">Top domains</h3>
-        <div id="top" class="top-list"></div>
-
-        <h3 style="margin-top:12px">Recent requests</h3>
-        <div style="max-height:320px;overflow:auto">
-          <table>
-            <thead><tr><th>Time</th><th>IP</th><th>Domain</th><th>Status</th><th class="small">Bytes</th></tr></thead>
-            <tbody id="recentTable"></tbody>
-          </table>
+        <!-- Quick test buttons -->
+        <div style="height:12px"></div>
+        <div class="card">
+          <h3>Quick tests</h3>
+          <div class="row" style="margin-bottom:8px">
+            <button class="btn" id="quickImage">Fetch sample image (proxied)</button>
+            <button class="btn" id="quickStats">Get stats</button>
+            <button class="btn ghost" id="quickClear">Clear stats</button>
+          </div>
+          <div class="small muted">Tip: use the "Show curl" button to copy a curl command for scripting or server-side testing.</div>
         </div>
+
       </div>
 
-      <div class="card">
-        <h3>Details</h3>
-        <div class="small muted">Recent requests (most recent first). Click a row to open the proxied URL in a new tab.</div>
-        <div style="height:10px"></div>
-        <div id="details" style="max-height:520px;overflow:auto"></div>
+      <!-- Right column: Docs + details -->
+      <div>
+        <div class="card" id="docs">
+          <h3>API Documentation</h3>
+          <div class="small muted">Endpoints implemented by this proxy server.</div>
+
+          <h4>/fetch</h4>
+          <div class="small">Proxy fetch. Use `GET /fetch?url=<encoded>` or `POST /fetch` with JSON `{"url":"..."}`.</div>
+          <ul class="small">
+            <li><strong>Query (GET)</strong>: <code>url</code> (required) — full http(s) URL to fetch.</li>
+            <li><strong>Body (POST)</strong>: JSON object with `url` property.</li>
+            <li><strong>Headers</strong>: forwarded (user-agent, accept, accept-language, range) — but do not forward auth headers.</li>
+          </ul>
+          <pre>Example:
+curl -v "http://localhost:3000/fetch?url=https://example.com/image.jpg"
+curl -X POST -H "Content-Type: application/json" -d '{"url":"https://example.com/image.jpg"}' http://localhost:3000/fetch
+          </pre>
+
+          <h4>/api/stats</h4>
+          <div class="small">GET — returns summary JSON (uptime, totals, top domains).</div>
+          <pre>Example:
+curl http://localhost:3000/api/stats
+          </pre>
+
+          <h4>/api/recent</h4>
+          <div class="small">GET — returns an array of recent proxied requests (most recent first).</div>
+          <pre>Example:
+curl http://localhost:3000/api/recent
+          </pre>
+
+          <h4>/api/top</h4>
+          <div class="small">GET — returns top proxied domains. Optional query: <code>?limit=50</code>.</div>
+
+          <h4>/api/clear</h4>
+          <div class="small">POST — clears in-memory stats. This endpoint is unprotected by default (local use only).</div>
+          <pre>Example:
+curl -X POST http://localhost:3000/api/clear
+          </pre>
+
+          <h4>Notes & Limits</h4>
+          <ul class="small">
+            <li>Rate-limited per IP (configurable via `RATE_LIMIT_MAX`).</li>
+            <li>Max proxied response size controlled by `MAX_CONTENT_LENGTH` (default 50MB).</li>
+            <li>Upstream timeout controlled by `REQUEST_TIMEOUT_MS` (default 30s).</li>
+            <li><strong>Security:</strong> This proxy is an open forward proxy by default — do not expose it publicly without adding authentication and domain allowlists.</li>
+          </ul>
+
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="card">
+          <h3>Generated curl helper</h3>
+          <div class="small muted">The tester can generate a `curl` line for the composed request. Click "Show curl" then copy it to your terminal.</div>
+          <pre id="curlOut">—</pre>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="card">
+          <h3>Raw API examples</h3>
+          <div class="small">Paste these into your terminal (replace host/port if needed):</div>
+          <pre>
+# Simple proxied image
+curl "http://localhost:3000/fetch?url=https://httpbin.org/image/png" --output example.png
+
+# Get stats
+curl http://localhost:3000/api/stats
+
+# Clear stats
+curl -X POST http://localhost:3000/api/clear
+          </pre>
+        </div>
+
       </div>
     </div>
 
-    <footer style="margin-top:12px;color:#94a3b8;font-size:13px">Note: This dashboard stores stats in-memory (ephemeral). Do not expose this proxy publicly without adding authentication and protections.</footer>
+    <footer style="margin-top:12px;color:#94a3b8;font-size:13px">Remember: stats are stored in-memory (ephemeral). Add auth before exposing this server publicly.</footer>
   </div>
 
 <script>
+  // Helper utilities
   const $ = id => document.getElementById(id);
   let pollTimer = null;
 
-  async function humanBytes(n){
+  function humanBytes(n){
     if(n === undefined || n === null) return '0 B';
     n = Number(n);
+    if(Number.isNaN(n)) return '0 B';
     if(n < 1024) return n + ' B';
     const units = ['B','KB','MB','GB','TB'];
     let i = 0;
@@ -118,7 +293,7 @@
       $('uptime').textContent = new Date(Date.now() - s.uptimeMs).toISOString().substr(11,8) + ' (since last reset)';
       $('requests').textContent = s.totalRequests;
       $('successfail').textContent = (s.totalSuccess || 0) + ' / ' + (s.totalFailed || 0);
-      $('bytes').textContent = await humanBytes(s.totalBytes);
+      $('bytes').textContent = humanBytes(s.totalBytes);
 
       // top domains
       const topEl = $('top');
@@ -130,9 +305,10 @@
         row.style.display = 'flex';
         row.style.gap = '8px';
         row.style.alignItems = 'center';
+        row.style.marginBottom = '6px';
         row.innerHTML = `<div style="width:10em;overflow:hidden;text-overflow:ellipsis">${item.domain}</div>
           <div style="flex:1">
-            <div class="bar"><i style="width:${Math.round(item.count/maxCount*100)}%"></i></div>
+            <div style="height:10px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden"><i style="display:block;height:100%;background:linear-gradient(90deg,#2dd4bf,#10b981);width:${Math.round(item.count/maxCount*100)}%"></i></div>
           </div>
           <div style="width:70px;text-align:right" class="small">${item.count}</div>`;
         topEl.appendChild(row);
@@ -155,7 +331,6 @@
                         <td class="small">${req.bytes}</td>`;
         tr.style.cursor = 'pointer';
         tr.addEventListener('click', () => {
-          // open proxied url in new tab
           window.open('/fetch?url=' + encodeURIComponent(req.url), '_blank');
         });
         recentTable.appendChild(tr);
@@ -167,7 +342,7 @@
                          <div><strong>${req.domain}</strong> — ${new Date(req.ts).toLocaleString()}</div>
                          <div class="small">${fmtTime(req.durationMs)} • ${req.status}</div>
                        </div>
-                       <div style="font-size:13px;color:#9fb6c5;margin-top:6px">${req.ip} • ${req.bytes} bytes ${req.error ? ' • Error: '+req.error : ''}</div>
+                       <div style="font-size:13px;color:#9fb6c5;margin-top:6px">${req.ip} • ${humanBytes(req.bytes)} ${req.error ? ' • Error: '+req.error : ''}</div>
                        <div style="margin-top:6px"><a href="/fetch?url=${encodeURIComponent(req.url)}" target="_blank">Open proxied URL</a></div>`;
         details.appendChild(d);
       });
@@ -177,22 +352,259 @@
     }
   }
 
-  $('refresh').addEventListener('click', () => refresh());
+  // Poll interval handling
   $('interval').addEventListener('change', ()=>{
     if(pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     const v = Number($('interval').value);
     if(v > 0) pollTimer = setInterval(refresh, v);
   });
 
+  $('refresh').addEventListener('click', () => refresh());
   $('clear').addEventListener('click', async ()=>{
     if(!confirm('Clear all in-memory stats?')) return;
     await fetch('/api/clear', { method: 'POST' });
     refresh();
   });
 
-  // start auto-refresh default 3s
+  // API Playground logic
+  function parseKeyValueLines(text){
+    return text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(line=>{
+      const idx = line.indexOf(':');
+      if(idx === -1){
+        const eq = line.indexOf('=');
+        if(eq === -1) return [line, ''];
+        return [ line.slice(0, eq).trim(), line.slice(eq+1).trim() ];
+      }
+      return [ line.slice(0, idx).trim(), line.slice(idx+1).trim() ];
+    });
+  }
+
+  function buildUrlFromPath(path, params){
+    // path may be absolute or relative
+    let url;
+    try { url = new URL(path, location.origin); } catch (e) { url = new URL(location.origin + path); }
+    if(params){
+      for(const [k,v] of params) if(k) url.searchParams.append(k, v);
+    }
+    return url.toString();
+  }
+
+  function buildCurl(method, url, headersObj, body){
+    const safe = s => s.replace(/(["\\$`])/g,'\\$1');
+    let parts = ['curl -i'];
+    if(method !== 'GET') parts.push('-X ' + method);
+    for(const [k,v] of Object.entries(headersObj)){
+      parts.push(`-H "${safe(k)}: ${safe(v)}"`);
+    }
+    if(body){
+      // try to stringify nicely
+      const b = typeof body === 'string' ? body : JSON.stringify(body);
+      parts.push(`-d '${safe(b)}'`);
+    }
+    parts.push(`"${safe(url)}"`);
+    return parts.join(' ');
+  }
+
+  async function sendRequest(){
+    const endpoint = $('endpointSelect').value;
+    let path = $('pathInput').value.trim();
+    if(endpoint !== 'custom') path = path || endpoint;
+    const method = $('method').value;
+    const queryLines = $('queryParams').value.trim();
+    const params = queryLines ? parseKeyValueLines(queryLines) : [];
+    const jsonBodyRaw = $('jsonBody').value.trim();
+    let body = null;
+    if(method === 'POST' && jsonBodyRaw) {
+      try {
+        body = JSON.parse(jsonBodyRaw);
+      } catch(e){
+        // treat as raw text if not valid JSON
+        body = jsonBodyRaw;
+      }
+    }
+    const headerLines = $('headers').value.trim();
+    const headers = {};
+    if(headerLines){
+      parseKeyValueLines(headerLines).forEach(([k,v])=>{ if(k) headers[k]=v; });
+    }
+
+    const url = buildUrlFromPath(path, params);
+    $('respStatus').textContent = '—';
+    $('respTime').textContent = '—';
+    $('respSize').textContent = '—';
+    $('respHeaders').textContent = '';
+    $('respPreview').innerHTML = '';
+    $('respText').style.display = 'none';
+    $('respText').textContent = '';
+
+    const start = performance.now();
+    let resp;
+    try {
+      const fetchOpts = { method, headers };
+      if(method === 'POST'){
+        if(typeof body === 'string'){
+          fetchOpts.body = body;
+          if(!headers['Content-Type']) fetchOpts.headers = {...fetchOpts.headers, 'Content-Type': 'text/plain'};
+        } else {
+          fetchOpts.body = JSON.stringify(body);
+          if(!headers['Content-Type']) fetchOpts.headers = {...fetchOpts.headers, 'Content-Type': 'application/json'};
+        }
+      }
+      // Make request
+      resp = await fetch(url, fetchOpts);
+      const took = Math.round(performance.now() - start);
+      $('respStatus').textContent = resp.status + ' ' + resp.statusText;
+      $('respTime').textContent = took + ' ms';
+
+      // Display headers
+      const headersObj = {};
+      resp.headers.forEach((v,k)=> headersObj[k]=v );
+      $('respHeaders').textContent = JSON.stringify(headersObj, null, 2);
+
+      // Decide how to display body
+      const ct = resp.headers.get('content-type') || '';
+      if(ct.startsWith('image/') || ct.includes('application/octet-stream')){
+        // treat as blob and preview
+        const blob = await resp.blob();
+        const size = blob.size;
+        $('respSize').textContent = humanBytes(size);
+
+        // show preview if image
+        if(ct.startsWith('image/')){
+          const urlblob = URL.createObjectURL(blob);
+          const img = document.createElement('img');
+          img.src = urlblob;
+          img.className = 'preview';
+          img.alt = 'image preview';
+          $('respPreview').appendChild(img);
+
+          const link = document.createElement('a');
+          link.href = urlblob;
+          link.download = 'download';
+          link.textContent = 'Download image';
+          link.style.display = 'inline-block';
+          link.style.marginTop = '8px';
+          link.className = 'kbd';
+          $('respPreview').appendChild(link);
+        } else {
+          // offer download
+          const urlblob = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = urlblob;
+          link.download = 'download.bin';
+          link.textContent = 'Download';
+          link.className = 'kbd';
+          $('respPreview').appendChild(link);
+        }
+      } else {
+        // try json
+        const text = await resp.text();
+        $('respSize').textContent = humanBytes(text.length);
+        // try pretty-print JSON
+        try {
+          const j = JSON.parse(text);
+          $('respText').style.display = 'block';
+          $('respText').textContent = JSON.stringify(j, null, 2);
+        } catch(e){
+          $('respText').style.display = 'block';
+          $('respText').textContent = text;
+        }
+      }
+
+      // populate curl helper
+      const curlCmd = buildCurl(method, url, headersObj, method==='POST' ? body : null);
+      $('curlOut').textContent = curlCmd;
+
+    } catch (err) {
+      const took = Math.round(performance.now() - start);
+      $('respStatus').textContent = 'ERROR';
+      $('respTime').textContent = took + ' ms';
+      $('respText').style.display = 'block';
+      $('respText').textContent = String(err);
+      $('curlOut').textContent = '';
+    }
+  }
+
+  $('sendBtn').addEventListener('click', sendRequest);
+  $('curlBtn').addEventListener('click', ()=>{
+    // show generated curl for current composition without sending
+    const endpoint = $('endpointSelect').value;
+    let path = $('pathInput').value.trim();
+    if(endpoint !== 'custom') path = path || endpoint;
+    const method = $('method').value;
+    const queryLines = $('queryParams').value.trim();
+    const params = queryLines ? parseKeyValueLines(queryLines) : [];
+    const jsonBodyRaw = $('jsonBody').value.trim();
+    let body = null;
+    if(method === 'POST' && jsonBodyRaw) {
+      try { body = JSON.parse(jsonBodyRaw); } catch (e) { body = jsonBodyRaw; }
+    }
+    const headerLines = $('headers').value.trim();
+    const headers = {};
+    if(headerLines) parseKeyValueLines(headerLines).forEach(([k,v])=>{ if(k) headers[k]=v; });
+    const url = buildUrlFromPath(path, params);
+    const curlCmd = buildCurl(method, url, headers, method==='POST' ? body : null);
+    $('curlOut').textContent = curlCmd;
+  });
+
+  $('openBtn').addEventListener('click', ()=>{
+    const endpoint = $('endpointSelect').value;
+    let path = $('pathInput').value.trim();
+    if(endpoint !== 'custom') path = path || endpoint;
+    const queryLines = $('queryParams').value.trim();
+    const params = queryLines ? parseKeyValueLines(queryLines) : [];
+    const url = buildUrlFromPath(path, params);
+    window.open(url, '_blank');
+  });
+
+  // when endpoint selection changes, update path input
+  $('endpointSelect').addEventListener('change', (e)=>{
+    const v = e.target.value;
+    if(v === 'custom') {
+      // leave path as-is
+    } else {
+      $('pathInput').value = v;
+    }
+    // default method for /api/clear is POST
+    if(v === '/api/clear') $('method').value = 'POST';
+    else $('method').value = 'GET';
+  });
+
+  // Quick buttons
+  $('quickImage').addEventListener('click', ()=>{
+    $('endpointSelect').value = '/fetch';
+    $('pathInput').value = '/fetch';
+    $('method').value = 'GET';
+    $('queryParams').value = 'url=https://httpbin.org/image/png';
+    $('jsonBody').value = '';
+    sendRequest();
+  });
+  $('quickStats').addEventListener('click', ()=>{
+    $('endpointSelect').value = '/api/stats';
+    $('pathInput').value = '/api/stats';
+    $('method').value = 'GET';
+    $('queryParams').value = '';
+    $('jsonBody').value = '';
+    sendRequest();
+  });
+  $('quickClear').addEventListener('click', async ()=>{
+    if(!confirm('Clear all stats?')) return;
+    $('endpointSelect').value = '/api/clear';
+    $('pathInput').value = '/api/clear';
+    $('method').value = 'POST';
+    $('queryParams').value = '';
+    $('jsonBody').value = '';
+    sendRequest();
+  });
+
+  // initial refresh and poll
+  $('interval').value = '3000';
   pollTimer = setInterval(refresh, 3000);
   refresh();
+
+  // Open docs button scrolls to docs
+  $('openApi').addEventListener('click', ()=>{ document.getElementById('docs').scrollIntoView({behavior:'smooth'}); });
+
 </script>
 </body>
 </html>
