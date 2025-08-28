@@ -193,9 +193,10 @@ app.all('/fetch', async (req, res) => {
     // Status code passthrough
     res.status(upstream.status);
 
-    // Stream upstream -> client while tracking bytes
-    const upstreamBody = upstream.body;
-    if (!upstreamBody) {
+  // Stream upstream -> client while tracking bytes
+  const { Readable } = require('stream');
+  const upstreamBody = upstream.body ? Readable.fromWeb(upstream.body) : null;
+  if (!upstreamBody) {
       stats.totalFailed++;
       const entry = { ts: new Date().toISOString(), ip: clientIp, url: target, domain: domainFromUrl(target), status: upstream.status || 204, bytes: 0, durationMs: Date.now()-start, error: 'no_body' };
       recordRecent(entry);
